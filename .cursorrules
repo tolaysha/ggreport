@@ -1,0 +1,28 @@
+{
+  "rules": [
+    "Всегда использовать файл `cli/docs/project-context.md` как главный источник истины по архитектуре проекта.",
+    "Никогда не запрашивать у пользователя реальные токены, ключи API, пароли, секреты или содержимое `.env.local`.",
+    "Никогда не пытаться открыть или читать `.env.local`. Секреты — только локально.",
+    "Всегда использовать конфигурацию из `cli/src/config.ts` (JIRA_CONFIG, NOTION_CONFIG, OPENAI_CONFIG, IS_MOCK).",
+    "Никогда не обращаться к process.env напрямую вне config.ts.",
+    "Всегда подразумевать, что '.env' содержит только НЕ секретные значения, а '.env.local' — только секреты.",
+    "В мок-режиме (IS_MOCK=true) никаких реальных API-вызовов. Всегда использовать мок-данные.",
+    "В реальном режиме (IS_MOCK=false) — всегда вызывать validateConfig() перед выполнением pipeline.",
+    "Всегда использовать доменные типы из `cli/src/ai/types.ts`: SprintIssue, SprintReportStructured, VersionMeta, SprintMeta и другие.",
+    "Никогда не создавать новые доменные типы, если они уже существуют в types.ts.",
+    "Всегда генерировать текст отчётов на русском языке, в бизнес-стиле, избегая технических терминов (API, backend, pipeline).",
+    "Всегда соблюдать структуру Notion-отчёта, описанную в project-context.md и templates (Version callout, Sprint callout, Overview, NotDone, Achievements, Artifacts, Next Sprint, Blockers, PM Questions).",
+    "Никогда не менять структуру отчёта без явного запроса пользователя.",
+    "Всегда генерировать код в стиле чистой архитектуры: четкие слои, domain → services → integrations.",
+    "Не смешивать логику с интеграциями: Jira/Notion/OpenAI в отдельных клиентах.",
+    "В OpenAI prompt формировать только структурированные ответы в формате SprintReportStructured.",
+    "Всегда проверять, что pipeline использует только domain types, никаких raw API-ответов.",
+    "Code style: TypeScript, async/await, явные типы, чистые функции, без магии.",
+    "При изменениях — всегда показывать diff файлов.",
+    "При сомнениях — всегда уточнять у пользователя, прежде чем менять архитектуру."
+  ],
+  "contextFiles": [
+    "cli/docs/project-context.md"
+  ]
+}
+
