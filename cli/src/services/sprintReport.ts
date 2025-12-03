@@ -188,18 +188,9 @@ export async function generateSprintReport(
 
     // Step 2: Analyze issues and select demos
     logger.info('Step 2: Analyzing issues...');
-    const demoIssues = selectDemoIssues(
-      issues.map(i => ({
-        key: i.key,
-        summary: i.summary,
-        status: i.status,
-        statusCategory: i.statusCategory,
-        storyPoints: i.storyPoints,
-        assignee: i.assignee,
-        artifact: i.artifact,
-      })),
-      { maxDemos: 3 },
-    );
+    // selectDemoIssues expects SprintIssue[] and returns SprintIssue[]
+    // No conversion needed - issues is already SprintIssue[]
+    const demoIssues = selectDemoIssues(issues, { maxDemos: 3 });
 
     console.log(`✓ Selected ${demoIssues.length} demo issues`);
 
@@ -218,7 +209,8 @@ export async function generateSprintReport(
         progressPercent,
       },
       issues,
-      demoIssues: demoIssues.map(toSprintIssue),
+      // demoIssues is already SprintIssue[] from selectDemoIssues, no conversion needed
+      demoIssues,
     };
 
     const report = await openaiClient.generateSprintReportStructured(context);

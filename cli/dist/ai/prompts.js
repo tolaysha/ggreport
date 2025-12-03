@@ -1,8 +1,27 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.SYSTEM_PROMPT = void 0;
+exports.SYSTEM_PROMPT = exports.BASE_PROJECT_CONTEXT = void 0;
 exports.buildStructuredReportPrompt = buildStructuredReportPrompt;
 exports.mapOpenAIResponseToSprintReportStructured = mapOpenAIResponseToSprintReportStructured;
+/**
+ * Base project context for AI prompts.
+ * See docs/project-context.md for the full description.
+ *
+ * TODO: This constant can be used when building system/context prompts for LLM calls
+ * to provide consistent project understanding across different AI interactions.
+ */
+exports.BASE_PROJECT_CONTEXT = `
+This CLI is part of the Toys AI project. It generates sprint reports in Notion using Jira data and AI-generated text.
+
+Key domain types:
+- SprintIssue: normalized Jira issue (key, summary, status, storyPoints, assignee, artifact)
+- SprintReportStructured: AI-generated report sections (version, sprint, overview, notDone, achievements, artifacts, nextSprint, blockers, pmQuestions)
+- NotionPageResult: created page info (id, url)
+
+The pipeline: Jira → SprintIssue[] → AI → SprintReportStructured → Notion page.
+
+See docs/project-context.md in the repo for full context.
+`;
 /**
  * Format issues list for the prompt
  */

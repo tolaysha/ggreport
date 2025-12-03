@@ -157,15 +157,9 @@ async function generateSprintReport(options) {
         console.log(`✓ Loaded ${issues.length} issues from Jira`);
         // Step 2: Analyze issues and select demos
         logger_1.logger.info('Step 2: Analyzing issues...');
-        const demoIssues = (0, demoSelector_1.selectDemoIssues)(issues.map(i => ({
-            key: i.key,
-            summary: i.summary,
-            status: i.status,
-            statusCategory: i.statusCategory,
-            storyPoints: i.storyPoints,
-            assignee: i.assignee,
-            artifact: i.artifact,
-        })), { maxDemos: 3 });
+        // selectDemoIssues expects SprintIssue[] and returns SprintIssue[]
+        // No conversion needed - issues is already SprintIssue[]
+        const demoIssues = (0, demoSelector_1.selectDemoIssues)(issues, { maxDemos: 3 });
         console.log(`✓ Selected ${demoIssues.length} demo issues`);
         const progressPercent = calculateProgressPercent(issues);
         // Step 3: Generate structured report with OpenAI
@@ -181,7 +175,8 @@ async function generateSprintReport(options) {
                 progressPercent,
             },
             issues,
-            demoIssues: demoIssues.map(toSprintIssue),
+            // demoIssues is already SprintIssue[] from selectDemoIssues, no conversion needed
+            demoIssues,
         };
         const report = await openaiClient_1.openaiClient.generateSprintReportStructured(context);
         console.log('✓ Generated structured AI sprint report');

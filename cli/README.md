@@ -5,6 +5,12 @@ A Node.js + TypeScript CLI tool that generates **fully structured sprint report 
 - AI-generated text in **Russian business language** (using OpenAI API)
 - Structured Notion pages matching a specific template
 
+## Project Context
+
+For an overview of what this CLI does and how it fits into the Toys AI project, see:
+
+- [`docs/project-context.md`](docs/project-context.md)
+
 ## Report Template
 
 The CLI generates a Notion page with the following structure:

@@ -1,5 +1,13 @@
 import type { SprintIssue, SprintReportStructured, VersionMeta } from './types';
 /**
+ * Base project context for AI prompts.
+ * See docs/project-context.md for the full description.
+ *
+ * TODO: This constant can be used when building system/context prompts for LLM calls
+ * to provide consistent project understanding across different AI interactions.
+ */
+export declare const BASE_PROJECT_CONTEXT = "\nThis CLI is part of the Toys AI project. It generates sprint reports in Notion using Jira data and AI-generated text.\n\nKey domain types:\n- SprintIssue: normalized Jira issue (key, summary, status, storyPoints, assignee, artifact)\n- SprintReportStructured: AI-generated report sections (version, sprint, overview, notDone, achievements, artifacts, nextSprint, blockers, pmQuestions)\n- NotionPageResult: created page info (id, url)\n\nThe pipeline: Jira \u2192 SprintIssue[] \u2192 AI \u2192 SprintReportStructured \u2192 Notion page.\n\nSee docs/project-context.md in the repo for full context.\n";
+/**
  * Context for generating a structured sprint report
  */
 export interface SprintReportGenerationContext {
