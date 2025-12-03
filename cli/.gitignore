@@ -1,0 +1,20 @@
+# Environment files (never commit real credentials)
+# .env contains non-sensitive config
+# .env.local contains ALL secrets (API tokens, keys)
+.env
+.env.local
+.env.*
+!env.example.txt
+
+# Build output
+dist/
+
+# Node
+node_modules/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+

@@ -6,7 +6,7 @@ import type {
   SprintReportStructured,
   VersionMeta,
 } from '../ai/types';
-import { IS_MOCK } from '../config';
+import { IS_MOCK, validateConfig } from '../config';
 import { jiraClient } from '../jira/client';
 import type { ParsedJiraIssue } from '../jira/types';
 import { notionClient } from '../notion/client';
@@ -156,6 +156,11 @@ export async function generateSprintReport(
   options: SprintReportOptions,
 ): Promise<SprintReportResult> {
   const { sprintNameOrId, dryRun = false, versionMeta } = options;
+
+  // Validate configuration before making any API calls
+  // In MOCK_MODE, this allows running without real credentials
+  // In real mode, this throws an error if required env vars are missing
+  validateConfig();
 
   try {
     let issues: SprintIssue[];

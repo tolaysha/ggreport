@@ -8,23 +8,32 @@ const axios_1 = __importDefault(require("axios"));
 const config_1 = require("../config");
 const logger_1 = require("../utils/logger");
 class JiraClient {
-    client;
+    client = null;
     artifactFieldId;
     constructor() {
-        const auth = Buffer.from(`${config_1.config.jira.email}:${config_1.config.jira.apiToken}`).toString('base64');
-        this.client = axios_1.default.create({
-            baseURL: config_1.config.jira.baseUrl,
-            headers: {
-                Authorization: `Basic ${auth}`,
-                'Content-Type': 'application/json',
-            },
-        });
-        this.artifactFieldId = config_1.config.jira.artifactFieldId;
+        // Only initialize HTTP client if not in mock mode
+        if (!config_1.IS_MOCK) {
+            const auth = Buffer.from(`${config_1.JIRA_CONFIG.email}:${config_1.JIRA_CONFIG.apiToken}`).toString('base64');
+            this.client = axios_1.default.create({
+                baseURL: config_1.JIRA_CONFIG.baseUrl,
+                headers: {
+                    Authorization: `Basic ${auth}`,
+                    'Content-Type': 'application/json',
+                },
+            });
+        }
+        this.artifactFieldId = config_1.JIRA_CONFIG.artifactFieldId;
     }
     /**
      * Find a sprint by name or ID
      */
     async findSprint(sprintNameOrId) {
+        if (config_1.IS_MOCK) {
+            throw new Error('findSprint should not be called in mock mode');
+        }
+        if (!this.client) {
+            throw new Error('Jira client not initialized');
+        }
         const isNumeric = /^\d+$/.test(sprintNameOrId);
         if (isNumeric) {
             // Direct sprint lookup by ID
@@ -38,13 +47,13 @@ class JiraClient {
             }
         }
         // Search by name - need to get sprints from board
-        if (!config_1.config.jira.boardId) {
+        if (!config_1.JIRA_CONFIG.boardId) {
             throw new Error('JIRA_BOARD_ID is required when searching by sprint name');
         }
         let startAt = 0;
         const maxResults = 50;
         while (true) {
-            const response = await this.client.get(`/rest/agile/1.0/board/${config_1.config.jira.boardId}/sprint`, {
+            const response = await this.client.get(`/rest/agile/1.0/board/${config_1.JIRA_CONFIG.boardId}/sprint`, {
                 params: { startAt, maxResults },
             });
             const sprint = response.data.values.find(s => s.name.toLowerCase() === sprintNameOrId.toLowerCase());
@@ -62,6 +71,12 @@ class JiraClient {
      * Get all issues for a sprint
      */
     async getIssuesForSprint(sprintId) {
+        if (config_1.IS_MOCK) {
+            throw new Error('getIssuesForSprint should not be called in mock mode');
+        }
+        if (!this.client) {
+            throw new Error('Jira client not initialized');
+        }
         const issues = [];
         let startAt = 0;
         const maxResults = 100;
@@ -128,6 +143,9 @@ class JiraClient {
      * Main method: get sprint data with parsed issues
      */
     async getSprintData(sprintNameOrId) {
+        if (config_1.IS_MOCK) {
+            throw new Error('getSprintData should not be called in mock mode');
+        }
         logger_1.logger.info(`Fetching sprint data for: ${sprintNameOrId}`);
         const sprint = await this.findSprint(sprintNameOrId);
         if (!sprint) {

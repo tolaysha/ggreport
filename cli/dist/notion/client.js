@@ -7,15 +7,13 @@ const logger_1 = require("../utils/logger");
 const builder_1 = require("./builder");
 class NotionClient {
     client = null;
-    parentPageId;
     constructor() {
         // Only initialize Notion client if not in mock mode
         if (!config_1.IS_MOCK) {
             this.client = new client_1.Client({
-                auth: config_1.config.notion.apiKey,
+                auth: config_1.NOTION_CONFIG.apiKey,
             });
         }
-        this.parentPageId = config_1.config.notion.parentPageId;
     }
     /**
      * Create a sprint report page in Notion
@@ -53,7 +51,7 @@ class NotionClient {
         // Create the page with title
         const page = await this.client.pages.create({
             parent: {
-                page_id: this.parentPageId,
+                page_id: config_1.NOTION_CONFIG.parentPageId,
             },
             properties: {
                 title: {

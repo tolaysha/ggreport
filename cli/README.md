@@ -27,6 +27,68 @@ The CLI generates a Notion page with the following structure:
 
 All text is generated in **Russian**, using **business language** without technical jargon (no API, backend, frontend, pipeline, DevOps, etc.).
 
+## Environment Configuration
+
+The CLI uses a local `.env` file to store credentials for external services.
+
+### Security Notes
+
+> ⚠️ **Important Security Practices:**
+> - Your `.env` file is **ignored by git** and should **never be committed**.
+> - **Never paste real tokens or API keys** into prompts, screenshots, or chat messages.
+> - Keep credentials only in your local `.env` file.
+
+### Quick Setup
+
+```bash
+cd cli
+
+# Copy the example file
+cp env.example.txt .env
+
+# Edit .env and fill in your real values
+# (use your favorite editor)
+```
+
+### Environment Variables Reference
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `MOCK_MODE` | No | Set to `"true"` to run with mock data (no external API calls). Default: `false` |
+| `JIRA_BASE_URL` | Yes* | Your Jira Cloud instance URL (e.g., `https://your-workspace.atlassian.net`) |
+| `JIRA_EMAIL` | Yes* | Email associated with your Jira account |
+| `JIRA_API_TOKEN` | Yes* | Jira API token (generate at Atlassian account settings) |
+| `JIRA_BOARD_ID` | No | Board ID for sprint name lookups (required if using `--sprint` with name) |
+| `JIRA_ARTIFACT_FIELD_ID` | No | Custom field ID for artifact links. Default: `customfield_10001` |
+| `NOTION_API_KEY` | Yes* | Notion integration secret |
+| `NOTION_PARENT_PAGE_ID` | Yes* | Notion page ID where reports will be created |
+| `OPENAI_API_KEY` | Yes* | OpenAI API key |
+| `OPENAI_MODEL` | No | OpenAI model to use. Default: `gpt-4o` |
+
+*Required only when `MOCK_MODE` is not `true`.
+
+### Config Validation
+
+The CLI validates your configuration before making any API calls:
+
+```bash
+# Real mode — requires all credentials
+MOCK_MODE=false npm run sprint-report -- --sprint="Sprint 4"
+
+# Mock mode — credentials can be omitted
+MOCK_MODE=true npm run sprint-report -- --sprint="Sprint 4"
+```
+
+If any required variable is missing in real mode, you'll see a clear error message:
+
+```
+❌ Configuration error: The following required environment variables are not set:
+  - Missing JIRA_BASE_URL in environment. Set it in your .env file.
+  - Missing OPENAI_API_KEY in environment. Set it in your .env file.
+
+Tip: Copy env.example.txt to .env and fill in your credentials, or set MOCK_MODE=true to test without real APIs.
+```
+
 ## Setup
 
 ### 1. Install dependencies
@@ -38,33 +100,7 @@ npm install
 
 ### 2. Configure environment variables
 
-Copy the example env file and fill in your credentials:
-
-```bash
-cp env.example.txt .env
-```
-
-Edit `.env` with your actual values:
-
-```env
-# Jira Configuration
-JIRA_BASE_URL=https://your-domain.atlassian.net
-JIRA_EMAIL=your-email@example.com
-JIRA_API_TOKEN=your-jira-api-token
-JIRA_BOARD_ID=123
-JIRA_ARTIFACT_FIELD_ID=customfield_10001
-
-# Notion Configuration
-NOTION_API_KEY=secret_your-notion-api-key
-NOTION_PARENT_PAGE_ID=your-notion-page-id
-
-# OpenAI Configuration
-OPENAI_API_KEY=sk-your-openai-api-key
-OPENAI_MODEL=gpt-4o
-
-# Mock Mode (optional)
-MOCK_MODE=false
-```
+See [Environment Configuration](#environment-configuration) above.
 
 ### Getting API Keys
 
@@ -78,7 +114,7 @@ MOCK_MODE=false
 1. Go to https://www.notion.so/my-integrations
 2. Create a new integration
 3. Copy the "Internal Integration Secret"
-4. Share the parent page with your integration
+4. Share the parent page with your integration (important!)
 
 #### OpenAI
 1. Go to https://platform.openai.com/api-keys
@@ -111,10 +147,10 @@ npm run sprint-report -- --sprint="Sprint 4"
 To test the CLI without real Jira, Notion, or OpenAI API calls:
 
 ```bash
-# Set environment variable
+# Set environment variable inline
 MOCK_MODE=true npm run sprint-report -- --sprint="Sprint 4"
 
-# Or add to your .env file
+# Or add to your .env file:
 # MOCK_MODE=true
 ```
 
@@ -144,7 +180,7 @@ This is useful for:
 cli/
 ├── src/
 │   ├── index.ts           # CLI entry point
-│   ├── config.ts          # Environment config loader + MOCK_MODE
+│   ├── config.ts          # Environment config loader + validation
 │   ├── ai/
 │   │   ├── types.ts       # Domain types (SprintReportStructured, etc.)
 │   │   ├── openaiClient.ts # OpenAI API wrapper
@@ -160,6 +196,10 @@ cli/
 │   │   └── demoSelector.ts # Demo issue selection
 │   └── utils/
 │       └── logger.ts      # Logging utility
+├── docs/
+│   └── project-context.md # Project context for AI assistants
+├── .gitignore             # Ignores .env files
+├── env.example.txt        # Example environment file (safe to commit)
 ├── package.json
 ├── tsconfig.json
 └── README.md
@@ -167,11 +207,12 @@ cli/
 
 ## How It Works
 
-1. **Fetch Sprint Data**: Retrieves all issues for the specified sprint from Jira (or uses mock data)
-2. **Analyze Issues**: Categorizes issues (done/not done), calculates story points
-3. **Select Demo Issues**: Picks 2-3 best issues for demo (prioritizes done issues with artifacts and high story points)
-4. **Generate Structured Report**: Sends context to OpenAI to generate a `SprintReportStructured` object in Russian
-5. **Create Notion Page**: Builds a formatted Notion page matching the template exactly
+1. **Validate Config**: Checks that all required environment variables are set (in real mode)
+2. **Fetch Sprint Data**: Retrieves all issues for the specified sprint from Jira (or uses mock data)
+3. **Analyze Issues**: Categorizes issues (done/not done), calculates story points
+4. **Select Demo Issues**: Picks 2-3 best issues for demo (prioritizes done issues with artifacts and high story points)
+5. **Generate Structured Report**: Sends context to OpenAI to generate a `SprintReportStructured` object in Russian
+6. **Create Notion Page**: Builds a formatted Notion page matching the template exactly
 
 ## Domain Types
 
@@ -244,14 +285,14 @@ MOCK_MODE=true npm run dev -- --sprint="Sprint 4"
 
 ## Troubleshooting
 
-### "Sprint not found"
-- Make sure `JIRA_BOARD_ID` is set when searching by sprint name
-- Check that the sprint name matches exactly (case-insensitive)
-
-### "Missing required environment variable"
+### "Configuration error: Missing required environment variables"
 - Ensure all required variables are set in `cli/.env`
 - Check the file is named `.env` (not `.env.example`)
 - Use `MOCK_MODE=true` to test without real credentials
+
+### "Sprint not found"
+- Make sure `JIRA_BOARD_ID` is set when searching by sprint name
+- Check that the sprint name matches exactly (case-insensitive)
 
 ### Notion API errors
 - Verify the parent page is shared with your integration

@@ -1,7 +1,7 @@
 import { Client } from '@notionhq/client';
 
 import type { NotionPageResult, SprintReportStructured } from '../ai/types';
-import { config, IS_MOCK } from '../config';
+import { IS_MOCK, NOTION_CONFIG } from '../config';
 import { logger } from '../utils/logger';
 
 import { buildPageBlocks, buildPageTitle, logBlocksStructure } from './builder';
@@ -16,16 +16,14 @@ export interface CreateSprintReportPageInput {
 
 export class NotionClient {
   private client: Client | null = null;
-  private parentPageId: string;
 
   constructor() {
     // Only initialize Notion client if not in mock mode
     if (!IS_MOCK) {
       this.client = new Client({
-        auth: config.notion.apiKey,
+        auth: NOTION_CONFIG.apiKey,
       });
     }
-    this.parentPageId = config.notion.parentPageId;
   }
 
   /**
@@ -74,7 +72,7 @@ export class NotionClient {
     // Create the page with title
     const page = await this.client.pages.create({
       parent: {
-        page_id: this.parentPageId,
+        page_id: NOTION_CONFIG.parentPageId,
       },
       properties: {
         title: {

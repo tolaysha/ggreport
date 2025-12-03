@@ -8,7 +8,6 @@ export interface CreateSprintReportPageInput {
 }
 export declare class NotionClient {
     private client;
-    private parentPageId;
     constructor();
     /**
      * Create a sprint report page in Notion

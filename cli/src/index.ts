@@ -41,6 +41,7 @@ Options:
   --help, -h          Show this help message
 
 Environment Variables (set in cli/.env):
+  MOCK_MODE             Set to "true" to run with mock data (no API calls)
   JIRA_BASE_URL         Jira instance URL
   JIRA_EMAIL            Jira account email
   JIRA_API_TOKEN        Jira API token
@@ -50,12 +51,15 @@ Environment Variables (set in cli/.env):
   NOTION_PARENT_PAGE_ID Parent page ID for reports
   OPENAI_API_KEY        OpenAI API key
   OPENAI_MODEL          OpenAI model (default: gpt-4o)
+
+For more information, see: cli/README.md
 `);
 }
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
 
+  // Help can run without config validation
   if (args.help) {
     printHelp();
     process.exit(0);
@@ -69,7 +73,19 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  // Import modules only after arg validation (to defer env loading)
+  // Import config and validate AFTER arg parsing
+  // This allows --help to work without valid credentials
+  const { validateConfig } = await import('./config');
+
+  try {
+    validateConfig();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`\n❌ ${message}\n`);
+    process.exit(1);
+  }
+
+  // Import remaining modules after config validation
   const { generateSprintReport } = await import('./services/sprintReport');
   const { logger } = await import('./utils/logger');
 

@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
 
-import { config, IS_MOCK } from '../config';
+import { IS_MOCK, OPENAI_CONFIG } from '../config';
 import { logger } from '../utils/logger';
 
 import type {
@@ -133,10 +133,10 @@ export class OpenAIClient {
     // Only initialize OpenAI client if not in mock mode
     if (!IS_MOCK) {
       this.client = new OpenAI({
-        apiKey: config.openai.apiKey,
+        apiKey: OPENAI_CONFIG.apiKey,
       });
     }
-    this.model = config.openai.model;
+    this.model = OPENAI_CONFIG.model;
   }
 
   /**

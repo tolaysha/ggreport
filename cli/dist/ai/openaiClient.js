@@ -108,10 +108,10 @@ class OpenAIClient {
         // Only initialize OpenAI client if not in mock mode
         if (!config_1.IS_MOCK) {
             this.client = new openai_1.default({
-                apiKey: config_1.config.openai.apiKey,
+                apiKey: config_1.OPENAI_CONFIG.apiKey,
             });
         }
-        this.model = config_1.config.openai.model;
+        this.model = config_1.OPENAI_CONFIG.model;
     }
     /**
      * Generate a structured sprint report using OpenAI
