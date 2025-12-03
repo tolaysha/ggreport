@@ -1,0 +1,199 @@
+import axios, { type AxiosInstance } from 'axios';
+
+import { config } from '../config';
+import { logger } from '../utils/logger';
+
+import type {
+  JiraIssue,
+  JiraSearchResponse,
+  JiraSprint,
+  JiraSprintResponse,
+  ParsedJiraIssue,
+  SprintData,
+} from './types';
+
+export class JiraClient {
+  private client: AxiosInstance;
+  private artifactFieldId: string;
+
+  constructor() {
+    const auth = Buffer.from(
+      `${config.jira.email}:${config.jira.apiToken}`,
+    ).toString('base64');
+
+    this.client = axios.create({
+      baseURL: config.jira.baseUrl,
+      headers: {
+        Authorization: `Basic ${auth}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    this.artifactFieldId = config.jira.artifactFieldId;
+  }
+
+  /**
+   * Find a sprint by name or ID
+   */
+  async findSprint(sprintNameOrId: string): Promise<JiraSprint | null> {
+    const isNumeric = /^\d+$/.test(sprintNameOrId);
+
+    if (isNumeric) {
+      // Direct sprint lookup by ID
+      try {
+        const response = await this.client.get<JiraSprint>(
+          `/rest/agile/1.0/sprint/${sprintNameOrId}`,
+        );
+        return response.data;
+      } catch (error) {
+        logger.error(`Failed to fetch sprint by ID: ${sprintNameOrId}`, error);
+        return null;
+      }
+    }
+
+    // Search by name - need to get sprints from board
+    if (!config.jira.boardId) {
+      throw new Error(
+        'JIRA_BOARD_ID is required when searching by sprint name',
+      );
+    }
+
+    let startAt = 0;
+    const maxResults = 50;
+
+    while (true) {
+      const response = await this.client.get<JiraSprintResponse>(
+        `/rest/agile/1.0/board/${config.jira.boardId}/sprint`,
+        {
+          params: { startAt, maxResults },
+        },
+      );
+
+      const sprint = response.data.values.find(
+        s => s.name.toLowerCase() === sprintNameOrId.toLowerCase(),
+      );
+
+      if (sprint) {
+        return sprint;
+      }
+
+      if (response.data.isLast) {
+        break;
+      }
+
+      startAt += maxResults;
+    }
+
+    return null;
+  }
+
+  /**
+   * Get all issues for a sprint
+   */
+  async getIssuesForSprint(sprintId: number): Promise<JiraIssue[]> {
+    const issues: JiraIssue[] = [];
+    let startAt = 0;
+    const maxResults = 100;
+
+    const jql = `sprint = ${sprintId}`;
+
+    while (true) {
+      logger.debug(`Fetching issues for sprint ${sprintId}`, {
+        startAt,
+        maxResults,
+      });
+
+      const response = await this.client.get<JiraSearchResponse>(
+        '/rest/api/3/search',
+        {
+          params: {
+            jql,
+            startAt,
+            maxResults,
+            fields: [
+              'summary',
+              'status',
+              'assignee',
+              'customfield_10016', // Story points (common field)
+              this.artifactFieldId,
+            ].join(','),
+          },
+        },
+      );
+
+      issues.push(...response.data.issues);
+
+      if (startAt + response.data.maxResults >= response.data.total) {
+        break;
+      }
+
+      startAt += maxResults;
+    }
+
+    logger.info(`Fetched ${issues.length} issues for sprint ${sprintId}`);
+    return issues;
+  }
+
+  /**
+   * Parse raw Jira issue into a normalized format
+   */
+  parseIssue(issue: JiraIssue): ParsedJiraIssue {
+    const fields = issue.fields;
+
+    // Extract story points (try common field names)
+    const storyPoints =
+      (fields.customfield_10016 as number) ??
+      (fields.customfield_10004 as number) ?? // Another common story points field
+      null;
+
+    // Extract artifact from custom field
+    const artifactValue = fields[this.artifactFieldId];
+    let artifact: string | null = null;
+
+    if (typeof artifactValue === 'string') {
+      artifact = artifactValue;
+    } else if (
+      artifactValue &&
+      typeof artifactValue === 'object' &&
+      'value' in artifactValue
+    ) {
+      artifact = String(artifactValue.value);
+    }
+
+    return {
+      key: issue.key,
+      summary: fields.summary,
+      status: fields.status.name,
+      statusCategory: fields.status.statusCategory.key, // 'done', 'indeterminate', 'new'
+      storyPoints,
+      assignee: fields.assignee?.displayName ?? null,
+      artifact,
+    };
+  }
+
+  /**
+   * Main method: get sprint data with parsed issues
+   */
+  async getSprintData(sprintNameOrId: string): Promise<SprintData> {
+    logger.info(`Fetching sprint data for: ${sprintNameOrId}`);
+
+    const sprint = await this.findSprint(sprintNameOrId);
+    if (!sprint) {
+      throw new Error(`Sprint not found: ${sprintNameOrId}`);
+    }
+
+    logger.info(`Found sprint: ${sprint.name} (ID: ${sprint.id})`);
+
+    const rawIssues = await this.getIssuesForSprint(sprint.id);
+    const issues = rawIssues.map(issue => this.parseIssue(issue));
+
+    return {
+      sprint,
+      issues,
+    };
+  }
+}
+
+// Singleton instance
+export const jiraClient = new JiraClient();
+

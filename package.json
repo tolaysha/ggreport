@@ -31,7 +31,8 @@
     "db:studio": "drizzle-kit studio",
     "storybook": "storybook dev -p 6006",
     "storybook:test": "vitest run --config .storybook/vitest.config.mts",
-    "build-storybook": "storybook build"
+    "build-storybook": "storybook build",
+    "sprint-report": "npm --prefix cli run sprint-report --"
   },
   "dependencies": {
     "@arcjet/next": "^1.0.0-beta.15",
