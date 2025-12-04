@@ -108,6 +108,41 @@ export function validateConfig(): void {
 }
 
 // =============================================================================
+// Per-Integration Configuration Checks (for test mode)
+// =============================================================================
+
+/**
+ * Check if Jira integration is properly configured.
+ * Returns true if all required Jira environment variables are set.
+ */
+export function isJiraConfigured(): boolean {
+  return !!(
+    JIRA_CONFIG.baseUrl?.trim() &&
+    JIRA_CONFIG.email?.trim() &&
+    JIRA_CONFIG.apiToken?.trim()
+  );
+}
+
+/**
+ * Check if OpenAI integration is properly configured.
+ * Returns true if the OpenAI API key is set.
+ */
+export function isOpenAIConfigured(): boolean {
+  return !!OPENAI_CONFIG.apiKey?.trim();
+}
+
+/**
+ * Check if Notion integration is properly configured.
+ * Returns true if all required Notion environment variables are set.
+ */
+export function isNotionConfigured(): boolean {
+  return !!(
+    NOTION_CONFIG.apiKey?.trim() &&
+    NOTION_CONFIG.parentPageId?.trim()
+  );
+}
+
+// =============================================================================
 // Legacy Exports (for backward compatibility)
 // =============================================================================
 

@@ -5,7 +5,7 @@ import { logger } from '../utils/logger';
 
 import type {
   JiraIssue,
-  JiraSearchResponse,
+  JiraSearchJqlResponse,
   JiraSprint,
   JiraSprintResponse,
   ParsedJiraIssue,
@@ -111,42 +111,54 @@ export class JiraClient {
     }
 
     const issues: JiraIssue[] = [];
-    let startAt = 0;
     const maxResults = 100;
-
     const jql = `sprint = ${sprintId}`;
+    let nextPageToken: string | undefined;
 
+    // Using new Jira API endpoint (POST /rest/api/3/search/jql)
+    // Old GET /rest/api/3/search is deprecated since Dec 2024
+    // New API uses cursor-based pagination with nextPageToken
     while (true) {
       logger.debug(`Fetching issues for sprint ${sprintId}`, {
-        startAt,
         maxResults,
+        hasNextPage: !!nextPageToken,
       });
 
-      const response = await this.client.get<JiraSearchResponse>(
-        '/rest/api/3/search',
-        {
-          params: {
-            jql,
-            startAt,
-            maxResults,
-            fields: [
-              'summary',
-              'status',
-              'assignee',
-              'customfield_10016', // Story points (common field)
-              this.artifactFieldId,
-            ].join(','),
-          },
-        },
+      const requestBody: {
+        jql: string;
+        maxResults: number;
+        fields: string[];
+        nextPageToken?: string;
+      } = {
+        jql,
+        maxResults,
+        fields: [
+          'summary',
+          'status',
+          'assignee',
+          'customfield_10016', // Story points (common field)
+          this.artifactFieldId,
+        ],
+      };
+
+      // Add pagination token if not first page
+      if (nextPageToken) {
+        requestBody.nextPageToken = nextPageToken;
+      }
+
+      const response = await this.client.post<JiraSearchJqlResponse>(
+        '/rest/api/3/search/jql',
+        requestBody,
       );
 
       issues.push(...response.data.issues);
 
-      if (startAt + response.data.maxResults >= response.data.total) {
+      // Check if there are more pages
+      if (response.data.isLast || !response.data.nextPageToken) {
         break;
       }
 
-      startAt += maxResults;
+      nextPageToken = response.data.nextPageToken;
     }
 
     logger.info(`Fetched ${issues.length} issues for sprint ${sprintId}`);

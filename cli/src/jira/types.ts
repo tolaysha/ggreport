@@ -43,6 +43,13 @@ export interface JiraSearchResponse {
   startAt: number;
 }
 
+// New Jira API response format (POST /rest/api/3/search/jql)
+export interface JiraSearchJqlResponse {
+  issues: JiraIssue[];
+  isLast: boolean;
+  nextPageToken?: string;
+}
+
 export interface JiraSprintResponse {
   values: JiraSprint[];
   isLast: boolean;

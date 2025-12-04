@@ -6,7 +6,13 @@ import type {
   SprintReportStructured,
   VersionMeta,
 } from '../ai/types';
-import { IS_MOCK, validateConfig } from '../config';
+import {
+  IS_MOCK,
+  isJiraConfigured,
+  isNotionConfigured,
+  isOpenAIConfigured,
+  validateConfig,
+} from '../config';
 import { jiraClient } from '../jira/client';
 import type { ParsedJiraIssue } from '../jira/types';
 import { notionClient } from '../notion/client';
@@ -246,4 +252,264 @@ export async function generateSprintReport(
     logger.error('Failed to generate sprint report', { error: message });
     return { success: false, error: message };
   }
+}
+
+// =============================================================================
+// Test Mode Pipeline
+// =============================================================================
+
+export interface TestModeOptions {
+  sprintNameOrId: string;
+}
+
+interface TestModeSummary {
+  jira: 'real' | 'mock';
+  openai: 'real' | 'mock';
+  notion: 'real' | 'mock';
+  sprintName: string;
+  pageId: string;
+  pageUrl: string;
+}
+
+/**
+ * Generate mock sprint report for test mode (same as OpenAI client mock)
+ */
+function generateMockReportForTestMode(
+  sprintName: string,
+  issues: SprintIssue[],
+): SprintReportStructured {
+  const sprintNumber = extractSprintNumber(sprintName);
+  const nextSprintNumber = String(Number(sprintNumber) + 1);
+  const progressPercent = calculateProgressPercent(issues);
+
+  return {
+    version: {
+      number: '1',
+      deadline: '29 Марта 2026',
+      goal: 'Запуск MVP продукта с базовым функционалом для первых пользователей.',
+      progressPercent: 35,
+    },
+    sprint: {
+      number: sprintNumber,
+      startDate: '17 Ноября 2025',
+      endDate: '28 Ноября 2025',
+      goal: 'Реализация основного пользовательского сценария и подготовка демо для партнёров.',
+      progressPercent,
+    },
+    overview: `В этом спринте команда сфокусировалась на реализации ключевого пользовательского сценария. Мы успешно завершили основную часть запланированных задач, что позволило нам приблизиться к целям версии.
+
+Главным достижением стала возможность для пользователей полноценно работать с основным функционалом продукта. Также была улучшена производительность системы, что положительно скажется на пользовательском опыте.
+
+Часть задач пришлось перенести на следующий спринт из-за необходимости более глубокой проработки требований совместно с партнёрами. Тем не менее, спринт можно считать успешным — мы достигли ${progressPercent}% выполнения запланированного объёма работ.`,
+    notDone: [
+      {
+        title: 'Интеграция с внешней системой уведомлений',
+        reason: 'Потребовалось дополнительное согласование формата данных с партнёром',
+        requiredForCompletion: 'Финализировать спецификацию и получить тестовый доступ к системе партнёра',
+        newDeadline: 'Спринт ' + nextSprintNumber,
+      },
+    ],
+    achievements: [
+      {
+        title: 'Запущен основной пользовательский сценарий',
+        description: 'Пользователи теперь могут полностью пройти путь от регистрации до получения результата.',
+      },
+      {
+        title: 'Улучшена скорость работы системы',
+        description: 'Время отклика системы сократилось на 40%, что делает работу с продуктом более комфортной.',
+      },
+    ],
+    artifacts: [
+      {
+        title: 'Демонстрация основного сценария работы',
+        description: 'Видеозапись полного пользовательского пути от входа в систему до получения результата.',
+        jiraLink: 'https://jira.example.com/browse/PROJ-123',
+        attachmentsNote: 'Видео (3 мин), скриншоты интерфейса',
+      },
+    ],
+    nextSprint: {
+      sprintNumber: nextSprintNumber,
+      goal: 'Завершить интеграцию с партнёрской системой и подготовить продукт к закрытому бета-тестированию.',
+    },
+    blockers: [
+      {
+        title: 'Ожидание доступа к тестовой среде партнёра',
+        description: 'Для завершения интеграции необходим доступ к тестовой среде, который пока не предоставлен.',
+        resolutionProposal: 'Эскалировать запрос через менеджера партнёрской программы.',
+      },
+    ],
+    pmQuestions: [
+      {
+        title: 'Приоритет функционала уведомлений',
+        description: 'Предлагаем обсудить, насколько критично наличие уведомлений в реальном времени для первой версии продукта.',
+      },
+    ],
+  };
+}
+
+/**
+ * Run the sprint report pipeline in TEST MODE.
+ *
+ * This mode is resilient and will ALWAYS complete successfully:
+ * - Tries real integrations (Jira, OpenAI, Notion) if configured
+ * - Falls back to mocks for any integration that fails or is not configured
+ * - Never throws errors - logs issues and continues
+ *
+ * Use this as a "bull test" to verify the pipeline is wired correctly.
+ */
+export async function runSprintReportTestMode(
+  options: TestModeOptions,
+): Promise<void> {
+  const { sprintNameOrId } = options;
+
+  const summary: TestModeSummary = {
+    jira: 'mock',
+    openai: 'mock',
+    notion: 'mock',
+    sprintName: sprintNameOrId,
+    pageId: '',
+    pageUrl: '',
+  };
+
+  let issues: SprintIssue[];
+  let sprintName: string = sprintNameOrId;
+  let startDate: string | undefined;
+  let endDate: string | undefined;
+  let sprintGoal: string | undefined;
+
+  // -------------------------------------------------------------------------
+  // Step 1: Jira - Fetch sprint data (or use mock)
+  // -------------------------------------------------------------------------
+  console.log('Step 1: Fetching sprint data...');
+
+  if (!isJiraConfigured()) {
+    console.log('  [TEST] Jira not configured, using mock issues.');
+    issues = generateMockIssues();
+    startDate = '17 Ноября 2025';
+    endDate = '28 Ноября 2025';
+    sprintGoal = 'Реализация основного пользовательского сценария';
+  } else {
+    try {
+      logger.debug('[TEST] Attempting real Jira integration...');
+      const sprintData = await jiraClient.getSprintData(sprintNameOrId);
+      const { sprint, issues: rawIssues } = sprintData;
+
+      sprintName = sprint.name;
+      startDate = formatDateRussian(sprint.startDate);
+      endDate = formatDateRussian(sprint.endDate);
+      sprintGoal = sprint.goal;
+      issues = rawIssues.map(toSprintIssue);
+      summary.jira = 'real';
+      console.log(`  ✓ Loaded ${issues.length} issues from Jira (REAL)`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.log(`  [TEST] Jira integration failed: ${message}`);
+      console.log('  [TEST] Falling back to mock issues.');
+      issues = generateMockIssues();
+      startDate = '17 Ноября 2025';
+      endDate = '28 Ноября 2025';
+      sprintGoal = 'Реализация основного пользовательского сценария';
+    }
+  }
+
+  console.log(`  ✓ Using ${issues.length} issues (${summary.jira})`);
+
+  // -------------------------------------------------------------------------
+  // Step 2: Demo selection (works with both real and mock issues)
+  // -------------------------------------------------------------------------
+  console.log('Step 2: Selecting demo issues...');
+  const demoIssues = selectDemoIssues(issues, { maxDemos: 3 });
+  console.log(`  ✓ Selected ${demoIssues.length} demo issues`);
+
+  const progressPercent = calculateProgressPercent(issues);
+
+  // -------------------------------------------------------------------------
+  // Step 3: OpenAI - Generate structured report (or use mock)
+  // -------------------------------------------------------------------------
+  console.log('Step 3: Generating structured report with AI...');
+
+  let report: SprintReportStructured;
+
+  if (!isOpenAIConfigured()) {
+    console.log('  [TEST] OpenAI not configured, using mock structured report.');
+    report = generateMockReportForTestMode(sprintName, issues);
+  } else {
+    try {
+      logger.debug('[TEST] Attempting real OpenAI integration...');
+      const context: SprintReportGenerationContext = {
+        sprintMeta: {
+          sprintName,
+          sprintNumber: extractSprintNumber(sprintName),
+          startDate,
+          endDate,
+          goal: sprintGoal,
+          progressPercent,
+        },
+        issues,
+        demoIssues,
+      };
+
+      report = await openaiClient.generateSprintReportStructured(context);
+      summary.openai = 'real';
+      console.log('  ✓ Generated structured report with OpenAI (REAL)');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.log(`  [TEST] OpenAI integration failed: ${message}`);
+      console.log('  [TEST] Falling back to mock structured report.');
+      report = generateMockReportForTestMode(sprintName, issues);
+    }
+  }
+
+  console.log(`  ✓ Report generated (${summary.openai})`);
+
+  // -------------------------------------------------------------------------
+  // Step 4: Notion - Create page (or use mock)
+  // -------------------------------------------------------------------------
+  console.log('Step 4: Creating Notion page...');
+
+  let page: NotionPageResult;
+
+  if (!isNotionConfigured()) {
+    console.log('  [TEST] Notion not configured, using mock page result.');
+    page = {
+      id: 'test-mode-mock-page-id',
+      url: 'https://notion.so/mock-test-page',
+    };
+  } else {
+    try {
+      logger.debug('[TEST] Attempting real Notion integration...');
+      page = await notionClient.createSprintReportPage({
+        sprintName,
+        report,
+      });
+      summary.notion = 'real';
+      console.log(`  ✓ Created Notion page (REAL): ${page.url}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.log(`  [TEST] Notion integration failed: ${message}`);
+      console.log('  [TEST] Falling back to mock page result.');
+      page = {
+        id: 'test-mode-mock-page-id',
+        url: 'https://notion.so/mock-test-page',
+      };
+    }
+  }
+
+  summary.pageId = page.id;
+  summary.pageUrl = page.url;
+
+  // -------------------------------------------------------------------------
+  // Summary
+  // -------------------------------------------------------------------------
+  console.log('\n' + '='.repeat(60));
+  console.log('🧪 TEST MODE SUMMARY');
+  console.log('='.repeat(60));
+  console.log(`Sprint:    ${summary.sprintName}`);
+  console.log(`Jira:      ${summary.jira.toUpperCase()}`);
+  console.log(`OpenAI:    ${summary.openai.toUpperCase()}`);
+  console.log(`Notion:    ${summary.notion.toUpperCase()}`);
+  console.log(`Page ID:   ${summary.pageId}`);
+  console.log(`Page URL:  ${summary.pageUrl}`);
+  console.log('='.repeat(60));
+  console.log('\n✅ Test mode completed successfully!\n');
 }

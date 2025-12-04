@@ -5,6 +5,7 @@ interface CliArgs {
   sprintId?: string;
   dryRun?: boolean;
   help?: boolean;
+  test?: boolean;
 }
 
 function parseArgs(args: string[]): CliArgs {
@@ -15,6 +16,8 @@ function parseArgs(args: string[]): CliArgs {
       result.help = true;
     } else if (arg === '--dry-run') {
       result.dryRun = true;
+    } else if (arg === '--test' || arg === '--e2e-test') {
+      result.test = true;
     } else if (arg.startsWith('--sprint=')) {
       result.sprint = arg.replace('--sprint=', '');
     } else if (arg.startsWith('--sprint-id=')) {
@@ -33,12 +36,21 @@ Usage:
   npm run sprint-report -- --sprint="Sprint 4"
   npm run sprint-report -- --sprint-id=123
   npm run sprint-report -- --sprint="Sprint 4" --dry-run
+  npm run sprint-report:test                              # E2E test mode
 
 Options:
   --sprint=<name>     Sprint name to generate report for
   --sprint-id=<id>    Sprint ID to generate report for
   --dry-run           Generate report but don't create Notion page
+  --test              Run in E2E test mode (resilient, always succeeds)
   --help, -h          Show this help message
+
+Test Mode (--test):
+  Runs the entire pipeline with resilient fallbacks:
+  - Tries real Jira/OpenAI/Notion if configured
+  - Falls back to mocks for any integration that fails or is not configured
+  - Always completes successfully (exit code 0)
+  - Useful for verifying the pipeline is wired correctly
 
 Environment Variables (set in cli/.env):
   MOCK_MODE             Set to "true" to run with mock data (no API calls)
@@ -73,7 +85,24 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  // Import config and validate AFTER arg parsing
+  // Test mode: resilient pipeline that always succeeds
+  if (args.test) {
+    const { runSprintReportTestMode } = await import('./services/sprintReport');
+    const { logger } = await import('./utils/logger');
+
+    logger.info('Starting sprint report generation in TEST MODE', {
+      sprint: sprintNameOrId,
+    });
+
+    console.log('\n🧪 Running in E2E TEST MODE...\n');
+
+    await runSprintReportTestMode({ sprintNameOrId });
+
+    // Test mode always exits with 0
+    process.exit(0);
+  }
+
+  // Normal mode: Import config and validate AFTER arg parsing
   // This allows --help to work without valid credentials
   const { validateConfig } = await import('./config');
 

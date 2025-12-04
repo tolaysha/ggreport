@@ -165,6 +165,58 @@ This is useful for:
 - Debugging the report structure
 - Demoing the tool
 
+### E2E Test Mode
+
+You can run a safe end-to-end test of the Sprint Report pipeline:
+
+```bash
+cd cli
+npm run sprint-report:test
+```
+
+Or with a custom sprint name:
+
+```bash
+npm run sprint-report -- --sprint="Sprint 5" --test
+```
+
+In this mode, the CLI will:
+- **Try** to use real Jira, OpenAI and Notion integrations if they are configured
+- **Fall back** to mock data for any integration that is missing or fails
+- **Always complete successfully** (exit code 0)
+
+This is your "bull test" (бычок) — one command that shows the whole pipeline is wired correctly.
+
+**Example output:**
+
+```
+🧪 Running in E2E TEST MODE...
+
+Step 1: Fetching sprint data...
+  [TEST] Jira not configured, using mock issues.
+  ✓ Using 6 issues (mock)
+Step 2: Selecting demo issues...
+  ✓ Selected 3 demo issues
+Step 3: Generating structured report with AI...
+  ✓ Generated structured report with OpenAI (REAL)
+  ✓ Report generated (real)
+Step 4: Creating Notion page...
+  [TEST] Notion not configured, using mock page result.
+
+============================================================
+🧪 TEST MODE SUMMARY
+============================================================
+Sprint:    Sprint 4
+Jira:      MOCK
+OpenAI:    REAL
+Notion:    MOCK
+Page ID:   test-mode-mock-page-id
+Page URL:  https://notion.so/mock-test-page
+============================================================
+
+✅ Test mode completed successfully!
+```
+
 ## Options
 
 | Option | Description |
@@ -172,6 +224,7 @@ This is useful for:
 | `--sprint=<name>` | Sprint name to generate report for |
 | `--sprint-id=<id>` | Sprint ID to generate report for |
 | `--dry-run` | Generate report but don't create Notion page |
+| `--test` | Run in E2E test mode (resilient, always succeeds) |
 | `--help`, `-h` | Show help message |
 
 ## Project Structure

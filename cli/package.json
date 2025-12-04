@@ -7,7 +7,12 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
-    "sprint-report": "ts-node src/index.ts"
+    "sprint-report": "ts-node src/index.ts",
+    "sprint-report:test": "NODE_ENV=test MOCK_MODE=false ts-node src/index.ts --sprint=\"Sprint 4\" --test",
+    "test:connections": "MOCK_MODE=false ts-node src/tests/connections/index.ts",
+    "test:jira": "MOCK_MODE=false ts-node src/tests/connections/index.ts --jira",
+    "test:notion": "MOCK_MODE=false ts-node src/tests/connections/index.ts --notion",
+    "test:openai": "MOCK_MODE=false ts-node src/tests/connections/index.ts --openai"
   },
   "dependencies": {
     "@notionhq/client": "^2.2.15",
